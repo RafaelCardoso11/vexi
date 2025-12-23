@@ -1,0 +1,21 @@
+[project]
+name = "vexi"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "ANDRE RAFAEL CARDOSO REIS",email = "rafabatera-8@hotmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy (>=2.4.0,<3.0.0)",
+    "matplotlib (>=3.10.8,<4.0.0)",
+    "lmdb (>=1.7.5,<2.0.0)"
+]
+
+[tool.poetry]
+packages = [{include = "vexi", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
