@@ -83,6 +83,26 @@ DS_OPERATIONS = {
 }
 
 # -------------------------------
+# I/O Operations
+# -------------------------------
+IO_OPS = {
+    BASE + 0x70: "PRINT_STR", # Print a string literal
+    BASE + 0x71: "PRINT_VAR", # Print a variable's value
+    BASE + 0x72: "INPUT_INT", # Read integer input into a variable
+}
+
+# -------------------------------
+# Control Flow Operations
+# -------------------------------
+CONTROL_FLOW_OPS = {
+    BASE + 0x80: "LABEL",      # Pseudo-op for marking a line
+    BASE + 0x81: "JMP",        # Unconditional jump
+    BASE + 0x82: "JMP_IF_EQ",  # Jump if equal
+    BASE + 0x83: "JMP_IF_NEQ", # Jump if not equal
+}
+
+
+# -------------------------------
 # Unified tools dictionary
 # -------------------------------
 TOOLS = {
@@ -94,4 +114,6 @@ TOOLS = {
     "extra_constants": EXTRA_CONSTANTS,
     "data_structures": DATA_STRUCTURES,
     "ds_operations": DS_OPERATIONS,
+    "io": IO_OPS,
+    "control_flow": CONTROL_FLOW_OPS,
 }
