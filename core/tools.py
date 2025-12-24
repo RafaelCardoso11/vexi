@@ -110,10 +110,10 @@ TOOLS = {
     "logic": LOGIC_OPS,
     "variables": VARIABLES,
     "control": CONTROL,
-    "constants": CONSTANTS,
-    "extra_constants": EXTRA_CONSTANTS,
     "data_structures": DATA_STRUCTURES,
     "ds_operations": DS_OPERATIONS,
     "io": IO_OPS,
     "control_flow": CONTROL_FLOW_OPS,
+    "constants": CONSTANTS,
+    "extra_constants": EXTRA_CONSTANTS,
 }

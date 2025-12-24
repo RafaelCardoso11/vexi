@@ -154,3 +154,9 @@ class CoreService:
     # -------------------------------
     def _exec_var_mov(self, dest, src):
         self.variables[dest] = self.variables[src]
+
+    # -------------------------------
+    # I/O Operations
+    # -------------------------------
+    def _exec_print_var(self, var_name):
+        print(self.variables.get(var_name, f"Variable {var_name} not found"))
