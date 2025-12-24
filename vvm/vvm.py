@@ -20,7 +20,7 @@ class VVMInstance:
                         val_bytes = str(value).encode("utf-8")
                     txn.put(key, val_bytes)
 
-    def run(self, filepath):
+    def run_vexi(self, filepath):
         try:
             with open(filepath, 'r') as f:
                 lines = f.readlines()
@@ -31,7 +31,7 @@ class VVMInstance:
         program = []
         for line in lines:
             line = line.strip()
-            if not line or line.startswith('//'):
+            if not line or line.startswith('#'):
                 continue
             
             parts = [p.strip() for p in line.split(',')]
@@ -53,11 +53,11 @@ class VVMInstance:
                     if arg.startswith('0x'):
                         args.append(int(arg, 16))
                     else:
-                        args.append(int(arg) if arg.replace('-', '', 1).isdigit() else float(arg))
+                        args.append(int(arg))
                 except (ValueError, TypeError):
                     args.append(arg)
 
-            program.append((opcode, args))
+            program.append((opcode, tuple(args)))
 
         pc = 0
         while pc < len(program):
