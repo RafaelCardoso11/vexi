@@ -7,14 +7,12 @@
 import time
 import matplotlib.pyplot as plt
 import numpy as np
+import tiktoken
 from dataclasses import dataclass
 from numba import njit
-
-# ----------------------------
-# TOKENIZERS
-# ----------------------------
-import tiktoken
 from transformers import AutoTokenizer
+from typing import Union
+
 
 tokenizers = {
      # OpenAI / GPT
@@ -133,11 +131,6 @@ VVM_PROGRAM = np.array([
 ], dtype=np.int64)
 
 
-
-# ----------------------------
-# TRADITIONAL CODE (REFERENCE)
-# ----------------------------
-
 def set_shape(e, v): e.shape = v
 def set_color(e, v): e.color = v
 def set_speed(e, v): e.speed = v
@@ -149,7 +142,9 @@ def seek(e, tx, ty):
     if e.y < ty: e.y += e.speed
     if e.y > ty: e.y -= e.speed
 def consume(e): pass
-
+# ----------------------------
+# TRADITIONAL CODE (REFERENCE)
+# ----------------------------
 TRADITIONAL_CODE = """
 set_color(entity, 1)
 set_speed(entity, 1)
@@ -172,9 +167,22 @@ print("\n" + "="*60)
 print("BENCHMARK 1 — TOKENIZATION")
 print("="*60)
 
+# ----------------------------
+# SERIALIZATION (TOKEN OPTIMIZED)
+# ----------------------------
+def serialize_program(data: Union[list, np.ndarray]) -> str:
+    """
+    Serializa uma lista ou numpy array para string.
+    """
+    if isinstance(data, np.ndarray):
+        data = data.tolist()
+    return ' '.join(map(str, data))
+
+
+SERIALIZED_VVM = serialize_program(VVM_PROGRAM)
 for name, tokenizer in tokenizers.items():
     trad_tokens = count_tokens(tokenizer, TRADITIONAL_CODE)
-    vvm_tokens = count_tokens(tokenizer, str(VVM_PROGRAM.tolist()))
+    vvm_tokens = count_tokens(tokenizer, SERIALIZED_VVM)
     reduction = (1 - vvm_tokens / trad_tokens) * 100
 
     print(f"""
@@ -228,7 +236,7 @@ time_vvm = []
 
 for n in ITERATIONS:
     tokens_traditional.append(count_tokens(tokenizer_base, TRADITIONAL_CODE) * n)
-    tokens_vvm.append(count_tokens(tokenizer_base, str(VVM_PROGRAM.tolist())) * n)
+    tokens_vvm.append(count_tokens(tokenizer_base, SERIALIZED_VVM) * n)
 
     # VVM
     state_arr = entity_to_array(EntityState())

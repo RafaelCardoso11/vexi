@@ -3,5 +3,5 @@
 *.pyo
 *.pyd
 
+.env
 
-vvm_db
