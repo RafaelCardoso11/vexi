@@ -1,82 +1,122 @@
 import os
 import time
-import matplotlib.pyplot as plt
+import re
 import numpy as np
+import matplotlib.pyplot as plt
 from google import genai
 
-# Configurações do Cliente
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+# ---------------- CONFIGURAÇÕES ----------------
 MODEL_NAME = "gemini-2.5-flash-lite"
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-def stress_test_factory(n_operations, mode="python"):
-    first_instruction_py = "initial_key = 999\n"
-    first_instruction_vvm = "100 999 "
-    
-    noise_py = "".join([f"item_{i} = {i} * 2\nupdate_inventory(item_{i})\n" for i in range(n_operations)])
-    noise_vvm = "".join([f"40 {i} {i*2} " for i in range(n_operations)])
-    
-    question = "\n\nQuestion: What is the value of the initial key? Answer only with the number."
-    
+STEPS = [10, 50, 100, 250, 500, 1000, 2000]
+REPEATS = 5
+TARGET = "999"
+
+# ---------------- GERADOR DE CONTEXTO ----------------
+def stress_test_factory(n_ops, mode="python"):
+    question = "What is the value of the initial key? Answer only with the number."
+
     if mode == "python":
-        return f"Context (Python):\n{first_instruction_py}{noise_py}{question}"
-    else:
-        rules = "Bytecode Rules: 100:SetKey(Value), 40:UpdateInventory(ID, Value)."
-        return f"{rules}\nContext (VVM):\n{first_instruction_vvm}{noise_vvm}{question}"
+        ctx = f"initial_key = {TARGET}\n"
+        for i in range(n_ops):
+            ctx += f"item_{i} = {i} * 2\nupdate_inventory(item_{i})\n"
+        return f"{ctx}\nQuestion: {question}"
 
-# Parâmetros do experimento
-steps = [10, 50, 100, 250, 500, 1000, 2000]
-data = {"python": {"tokens": [], "latency": []}, "vvm": {"tokens": [], "latency": []}}
+    ctx = f"100 {TARGET} "
+    for i in range(n_ops):
+        ctx += f"40 {i} {i*2} "
+    rules = "Rules: 100:SetKey, 40:UpdateInventory\n"
+    return f"{rules}{ctx}\n\nQuestion: {question}"
 
-print(f"Iniciando Benchmark Progressivo: {steps} operações\n")
+# ---------------- MÉTRICA DE ACURÁCIA ----------------
+def exact_match(answer):
+    return int(bool(re.fullmatch(rf"\b{TARGET}\b", answer.strip())))
 
-for n in steps:
+# ---------------- ESTRUTURA DE DADOS ----------------
+results = {
+    "python": {"tokens": [], "latency": [], "acc": []},
+    "vvm": {"tokens": [], "latency": [], "acc": []},
+}
+
+# ---------------- BENCHMARK ----------------
+print(f"\n▶ Iniciando benchmark")
+print(f"Modelo: {MODEL_NAME} | Repetições: {REPEATS}\n")
+
+for n in STEPS:
     for mode in ["python", "vvm"]:
-        prompt = stress_test_factory(n, mode)
-        
-        # Coleta de Tokens
-        t_resp = client.models.count_tokens(model=MODEL_NAME, contents=prompt)
-        tokens = t_resp.total_tokens
-        
-        # Coleta de Latência
-        start = time.time()
-        try:
-            response = client.models.generate_content(model=MODEL_NAME, contents=prompt)
-            _ = response.text.strip()
-        except:
-            pass
-        end = time.time()
-        
-        data[mode]["tokens"].append(tokens)
-        data[mode]["latency"].append(end - start)
-        print(f"Mode: {mode.upper()} | Ops: {n} | Tokens: {tokens} | Lat: {end-start:.2f}s")
+        latencies, tokens_list, accs = [], [], []
 
-# --- GERAÇÃO DO GRÁFICO AUTOMÁTICO ---
-fig, ax1 = plt.subplots(figsize=(10, 6))
+        for _ in range(REPEATS):
+            prompt = stress_test_factory(n, mode)
 
-# Eixo 1: Consumo de Tokens (Barras)
-color_py = '#3498db' # Azul
-color_vvm = '#e74c3c' # Vermelho
-width = 15
+            token_count = client.models.count_tokens(
+                model=MODEL_NAME,
+                contents=prompt
+            ).total_tokens
 
-ax1.set_xlabel('Número de Operações (Complexidade)')
-ax1.set_ylabel('Consumo de Tokens (Janela de Contexto)', color='black')
-ax1.bar(np.array(steps) - width/2, data["python"]["tokens"], width=width, label='Tokens: Python', color=color_py, alpha=0.7)
-ax1.bar(np.array(steps) + width/2, data["vvm"]["tokens"], width=width, label='Tokens: VVM', color=color_vvm, alpha=0.7)
-ax1.tick_params(axis='y')
+            start = time.time()
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=prompt
+            )
+            latency = time.time() - start
 
-# Eixo 2: Latência (Linhas)
-ax2 = ax1.twinx()
-ax2.set_ylabel('Latência de Resposta (Segundos)', color='darkgreen')
-ax2.plot(steps, data["python"]["latency"], marker='o', linestyle='--', color='blue', label='Latência: Python')
-ax2.plot(steps, data["vvm"]["latency"], marker='s', linestyle='-', color='red', label='Latência: VVM')
-ax2.tick_params(axis='y', labelcolor='darkgreen')
+            acc = exact_match(response.text)
 
-plt.title(f'Benchmark de Escalabilidade Semântica: VVM vs Python\nModelo: {MODEL_NAME}')
-fig.tight_layout()
-ax1.legend(loc='upper left')
-ax2.legend(loc='upper right')
+            latencies.append(latency)
+            tokens_list.append(token_count)
+            accs.append(acc)
 
-# Salva para o projeto
-plt.savefig("benchmark_escalabilidade.png", dpi=300)
-print("\n✅ Gráfico 'benchmark_escalabilidade.png' gerado com sucesso.")
+        results[mode]["latency"].append((np.mean(latencies), np.std(latencies)))
+        results[mode]["tokens"].append((np.mean(tokens_list), np.std(tokens_list)))
+        results[mode]["acc"].append((np.mean(accs), np.std(accs)))
+
+        print(
+            f"Mode: {mode.upper()} | Ops: {n} | "
+            f"Tokens: {np.mean(tokens_list):.1f}±{np.std(tokens_list):.1f} | "
+            f"Lat: {np.mean(latencies):.2f}±{np.std(latencies):.2f}s | "
+            f"Acc: {np.mean(accs):.2f}"
+        )
+
+# ---------------- PLOTS ----------------
+ops = np.array(STEPS)
+
+fig, axes = plt.subplots(1, 3, figsize=(22, 6))
+
+# Tokens
+for mode, color in [("python", "blue"), ("vvm", "red")]:
+    mean = [v[0] for v in results[mode]["tokens"]]
+    std = [v[1] for v in results[mode]["tokens"]]
+    axes[0].errorbar(ops, mean, yerr=std, label=mode.upper(), marker='o', capsize=5)
+
+axes[0].set_title("Consumo Médio de Tokens")
+axes[0].set_xlabel("Número de Operações")
+axes[0].set_ylabel("Tokens")
+axes[0].legend()
+
+# Latência
+for mode, color in [("python", "blue"), ("vvm", "red")]:
+    mean = [v[0] for v in results[mode]["latency"]]
+    std = [v[1] for v in results[mode]["latency"]]
+    axes[1].errorbar(ops, mean, yerr=std, label=mode.upper(), marker='s', capsize=5)
+
+axes[1].set_title("Latência Média de Inferência")
+axes[1].set_xlabel("Número de Operações")
+axes[1].set_ylabel("Segundos")
+axes[1].legend()
+
+# Acurácia
+for mode, color in [("python", "blue"), ("vvm", "red")]:
+    mean = [v[0] for v in results[mode]["acc"]]
+    axes[2].plot(ops, mean, label=mode.upper(), marker='d')
+
+axes[2].set_title("Fidelidade da Resposta")
+axes[2].set_ylim(-0.05, 1.05)
+axes[2].set_xlabel("Número de Operações")
+axes[2].set_ylabel("Acurácia Média")
+axes[2].legend()
+
+plt.tight_layout()
+plt.savefig("baseline_mestrado.png", dpi=300)
 plt.show()

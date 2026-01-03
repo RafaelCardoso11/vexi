@@ -8,11 +8,11 @@ from sentence_transformers import SentenceTransformer
 import faiss
 
 # ---------------- CONFIG ----------------
-MODEL_NAME = "gemini-2.0-flash-lite"
+MODEL_NAME = "gemini-2.5-flash-lite"
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-STEPS = [10, 100, 500, 1000]
+STEPS = [10, 100]
 REPEATS = 5
 
 # ---------------- DATA GEN ----------------

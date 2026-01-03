@@ -83,7 +83,6 @@ trainer = SFTTrainer(
     formatting_func=formatting_prompts_func,
     processing_class=tokenizer,
     args=args
-    # Note que removemos max_seq_length e packing daqui, pois já estão em 'args'
 )
 
 # 8. Treinar
